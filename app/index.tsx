@@ -1,10 +1,18 @@
-import { StyleSheet, Text, View } from "react-native";
+import { useAuth } from "@/lib/auth-context";
+import React from "react";
+import { Button, StyleSheet, Text, View } from "react-native";
 
-export default function AppIndex() {
+export default function MainScreen() {
+  const { user, signOut } = useAuth();
+
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Hello</Text>
-      <Text>빈 프로젝트 시작 화면입니다.</Text>
+      <Text style={styles.title}>메인</Text>
+      <Text style={styles.subtitle}>
+        {user?.email ? `${user.email}님 환영합니다!` : "환영합니다!"}
+      </Text>
+      <View style={{ height: 12 }} />
+      <Button title="로그아웃" onPress={signOut} />
     </View>
   );
 }
@@ -19,6 +27,10 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 24,
-    fontWeight: "600",
+    fontWeight: "700",
+  },
+  subtitle: {
+    fontSize: 16,
+    color: "#555",
   },
 });
