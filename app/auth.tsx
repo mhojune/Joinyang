@@ -6,6 +6,7 @@ export default function AuthScreen() {
   const { signIn, signUp, isLoadingUser, user } = useAuth();
   const [email, setEmail] = React.useState("");
   const [password, setPassword] = React.useState("");
+  const [userId, setUserId] = React.useState("");
   const [isSignup, setIsSignup] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 
@@ -13,7 +14,11 @@ export default function AuthScreen() {
     try {
       setError(null);
       if (isSignup) {
-        await signUp(email.trim(), password);
+        if (!userId.trim()) {
+          setError("프로필 아이디를 입력해주세요.");
+          return;
+        }
+        await signUp(email.trim(), password, userId.trim());
       } else {
         await signIn(email.trim(), password);
       }
@@ -30,6 +35,15 @@ export default function AuthScreen() {
         resizeMode="contain"
       />
       <Text style={styles.title}>{isSignup ? "회원가입" : "로그인"}</Text>
+      {isSignup && (
+        <TextInput
+          placeholder="프로필 아이디"
+          autoCapitalize="none"
+          value={userId}
+          onChangeText={setUserId}
+          style={styles.input}
+        />
+      )}
       <TextInput
         placeholder="Email"
         autoCapitalize="none"
@@ -54,7 +68,11 @@ export default function AuthScreen() {
       <View style={{ height: 8 }} />
       <Button
         title={isSignup ? "로그인으로" : "회원가입으로"}
-        onPress={() => setIsSignup((v) => !v)}
+        onPress={() => {
+          setIsSignup((v) => !v);
+          setUserId("");
+          setError(null);
+        }}
       />
     </View>
   );

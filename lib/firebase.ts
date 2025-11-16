@@ -5,12 +5,12 @@ import { getStorage } from "firebase/storage";
 
 // React Native 환경에서는 analytics를 사용하지 않습니다.
 const firebaseConfig = {
-  apiKey: "AIzaSyAYBNhOBqIj-a2Z74R6ydB3vCTiyE_Uc-Y",
-  authDomain: "joinyang-3aaab.firebaseapp.com",
-  projectId: "joinyang-3aaab",
-  storageBucket: "joinyang-3aaab.firebasestorage.app",
-  messagingSenderId: "733964978335",
-  appId: "1:733964978335:web:bc0003c9455d9f46a43aaa",
+  apiKey: process.env.EXPO_PUBLIC_FIREBASE_API_KEY,
+  authDomain: process.env.EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN,
+  projectId: process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID,
+  storageBucket: process.env.EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: process.env.EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+  appId: process.env.EXPO_PUBLIC_FIREBASE_APP_ID,
 };
 
 const app = initializeApp(firebaseConfig);
