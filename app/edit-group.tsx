@@ -2,17 +2,8 @@ import { useAuth } from "@/lib/auth-context";
 import { db } from "@/lib/firebase";
 import { Ionicons } from "@expo/vector-icons";
 import DateTimePicker from "@react-native-community/datetimepicker";
-import { useRouter } from "expo-router";
-import {
-  collection,
-  doc,
-  getDoc,
-  getDocs,
-  query,
-  serverTimestamp,
-  setDoc,
-  where,
-} from "firebase/firestore";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import { doc, getDoc, updateDoc } from "firebase/firestore";
 import React from "react";
 import {
   ActivityIndicator,
@@ -29,49 +20,29 @@ import {
 } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
-// 랜덤 색상 생성 함수
-const generateRandomColor = (): string => {
-  const colors = [
-    "#FF6B6B", // 빨강
-    "#4ECDC4", // 청록
-    "#45B7D1", // 하늘색
-    "#FFA07A", // 연어색
-    "#98D8C8", // 민트
-    "#F7DC6F", // 노랑
-    "#BB8FCE", // 보라
-    "#85C1E2", // 파랑
-    "#F8B88B", // 복숭아
-    "#82E0AA", // 연두
-    "#F1948A", // 분홍
-    "#5DADE2", // 밝은 파랑
-    "#AED6F1", // 연한 파랑
-    "#A9DFBF", // 연한 초록
-    "#F9E79F", // 연한 노랑
-  ];
-  return colors[Math.floor(Math.random() * colors.length)];
-};
-
 type GroupType = "study" | "hobby";
 
-export default function CreateGroupScreen() {
+export default function EditGroupScreen() {
+  const { groupId } = useLocalSearchParams<{ groupId: string }>();
   const { user } = useAuth();
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const [creating, setCreating] = React.useState(false);
+  const [loading, setLoading] = React.useState(true);
+  const [saving, setSaving] = React.useState(false);
 
   // 폼 상태
   const [name, setName] = React.useState("");
   const [description, setDescription] = React.useState("");
   const [type, setType] = React.useState<GroupType>("study");
-  const [hasSchedule, setHasSchedule] = React.useState<boolean | null>(null); // null: 선택 안함, true: 시간 정하는 모임, false: 모이는 거 없는 모임
-  const [selectedDays, setSelectedDays] = React.useState<number[]>([]); // 0: 일요일, 1: 월요일, ..., 6: 토요일
+  const [hasSchedule, setHasSchedule] = React.useState<boolean | null>(null);
+  const [selectedDays, setSelectedDays] = React.useState<number[]>([]);
   const [startTime, setStartTime] = React.useState<Date>(new Date());
   const [endTime, setEndTime] = React.useState<Date>(new Date());
   const [location, setLocation] = React.useState("");
   const [requiresApplication, setRequiresApplication] = React.useState<boolean | null>(
     null
-  ); // null: 선택 안함, true: 신청서 필요, false: 자유 가입
-  const [applicationQuestions, setApplicationQuestions] = React.useState<string[]>([""]); // 신청서 문답 배열
+  );
+  const [applicationQuestions, setApplicationQuestions] = React.useState<string[]>([""]);
 
   // 피커 상태
   const [showStartTimePicker, setShowStartTimePicker] = React.useState(false);
@@ -85,76 +56,103 @@ export default function CreateGroupScreen() {
   }>({});
   const [scheduleError, setScheduleError] = React.useState("");
 
-  // 시간을 분 단위로 변환하는 함수
-  const timeToMinutes = (timeStr: string): number => {
-    if (!timeStr || timeStr.trim() === "") {
-      return 0;
+  React.useEffect(() => {
+    if (groupId) {
+      loadGroupData();
     }
-    const [hours, minutes] = timeStr.split(":").map(Number);
-    if (isNaN(hours) || isNaN(minutes)) {
-      return 0;
-    }
-    return hours * 60 + minutes;
-  };
+  }, [groupId]);
 
-  // 주간 고정 일정과 겹치는지 확인하는 함수
-  const checkWeeklyEventConflict = async (
-    daysOfWeek: number[],
-    startTimeStr: string,
-    endTimeStr: string
-  ): Promise<{ hasConflict: boolean; conflictEvent?: string }> => {
-    if (!user) {
-      return { hasConflict: false };
-    }
+  const loadGroupData = async () => {
+    if (!groupId || !user) return;
 
+    setLoading(true);
     try {
-      const weeklyEventsQuery = query(
-        collection(db, "weeklyEvents"),
-        where("userId", "==", user.uid)
-      );
-      const weeklyEventsSnapshot = await getDocs(weeklyEventsQuery);
+      const groupDoc = await getDoc(doc(db, "groups", groupId));
+      if (groupDoc.exists()) {
+        const groupData = groupDoc.data();
 
-      const groupStartMinutes = timeToMinutes(startTimeStr);
-      const groupEndMinutes = timeToMinutes(endTimeStr);
-
-      for (const docSnapshot of weeklyEventsSnapshot.docs) {
-        const data = docSnapshot.data();
-        const weeklyDaysOfWeek = data.daysOfWeek || [];
-        const weeklyStartTime = data.startTime || "";
-        const weeklyEndTime = data.endTime || "";
-        const weeklyTitle = data.title || "";
-
-        // 겹치는 요일이 있는지 확인
-        const hasCommonDay = daysOfWeek.some((day) => weeklyDaysOfWeek.includes(day));
-        if (!hasCommonDay) {
-          continue;
+        // 모임장 권한 확인
+        if (groupData.creatorId !== user.uid) {
+          Alert.alert("권한 없음", "모임장만 편집할 수 있습니다.", [
+            {
+              text: "확인",
+              onPress: () => router.back(),
+            },
+          ]);
+          return;
         }
 
-        // 시간이 겹치는지 확인
-        const weeklyStartMinutes = timeToMinutes(weeklyStartTime);
-        const weeklyEndMinutes = timeToMinutes(weeklyEndTime);
+        // 데이터 로드
+        setName(groupData.name || "");
+        setDescription(groupData.description || "");
+        setType(groupData.type || "study");
+        setLocation(groupData.location || "");
+        setHasSchedule(
+          groupData.hasSchedule === true
+            ? true
+            : groupData.hasSchedule === false
+            ? false
+            : null
+        );
+        setRequiresApplication(
+          groupData.requiresApplication === true
+            ? true
+            : groupData.requiresApplication === false
+            ? false
+            : null
+        );
 
-        // 시간 겹침 체크: startTime < other.endTime && endTime > other.startTime
+        // 일정 데이터 로드
+        if (groupData.schedule) {
+          const schedule = groupData.schedule;
+          setSelectedDays(schedule.daysOfWeek || []);
+
+          if (schedule.startTime) {
+            const [hours, minutes] = schedule.startTime.split(":").map(Number);
+            const startDate = new Date();
+            startDate.setHours(hours, minutes, 0, 0);
+            setStartTime(startDate);
+          }
+
+          if (schedule.endTime) {
+            const [hours, minutes] = schedule.endTime.split(":").map(Number);
+            const endDate = new Date();
+            endDate.setHours(hours, minutes, 0, 0);
+            setEndTime(endDate);
+          }
+        }
+
+        // 신청서 문답 로드
         if (
-          groupStartMinutes < weeklyEndMinutes &&
-          groupEndMinutes > weeklyStartMinutes
+          groupData.applicationQuestions &&
+          Array.isArray(groupData.applicationQuestions)
         ) {
-          return {
-            hasConflict: true,
-            conflictEvent: weeklyTitle,
-          };
+          if (groupData.applicationQuestions.length > 0) {
+            setApplicationQuestions(groupData.applicationQuestions);
+          } else {
+            setApplicationQuestions([""]);
+          }
+        } else {
+          setApplicationQuestions([""]);
         }
+      } else {
+        Alert.alert("오류", "모임을 찾을 수 없습니다.", [
+          {
+            text: "확인",
+            onPress: () => router.back(),
+          },
+        ]);
       }
-
-      return { hasConflict: false };
-    } catch (error) {
-      console.error("Error checking weekly event conflict:", error);
-      return { hasConflict: false };
+    } catch (error: any) {
+      console.error("Error loading group data:", error);
+      Alert.alert("오류", error?.message || "모임 데이터를 불러오는데 실패했습니다.");
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleCreate = async () => {
-    if (!user) {
+  const handleSave = async () => {
+    if (!user || !groupId) {
       Alert.alert("오류", "로그인이 필요합니다.");
       return;
     }
@@ -195,21 +193,15 @@ export default function CreateGroupScreen() {
     // 에러 상태 초기화
     setErrors({});
 
-    setCreating(true);
+    setSaving(true);
     try {
-      // 랜덤 색상 생성
-      const color = generateRandomColor();
-
-      // 새 모임 생성
-      const groupsRef = collection(db, "groups");
-      const newGroupRef = doc(groupsRef);
-
       // 일정 데이터 구성
       let scheduleData = null;
       if (hasSchedule === true) {
         // 요일 검증
         if (selectedDays.length === 0) {
           Alert.alert("입력 오류", "모임 요일을 선택해주세요.");
+          setSaving(false);
           return;
         }
 
@@ -225,39 +217,22 @@ export default function CreateGroupScreen() {
         // 시작 시간이 마침 시간보다 늦거나 같으면 오류
         if (startTotalMinutes >= endTotalMinutes) {
           setScheduleError("시작 시간은 종료 시간보다 이전이어야 합니다.");
-          setCreating(false);
+          setSaving(false);
           return;
         }
 
         // 에러 초기화
         setScheduleError("");
 
-        const startTimeStr = `${String(startHours).padStart(2, "0")}:${String(
-          startMinutes
-        ).padStart(2, "0")}`;
-        const endTimeStr = `${String(endHours).padStart(2, "0")}:${String(
-          endMinutes
-        ).padStart(2, "0")}`;
-
-        // 주간 고정 일정과 겹치는지 확인
-        const conflictCheck = await checkWeeklyEventConflict(
-          selectedDays,
-          startTimeStr,
-          endTimeStr
-        );
-
-        if (conflictCheck.hasConflict) {
-          setScheduleError(
-            `기존 주간 고정 일정 "${conflictCheck.conflictEvent}"과 시간이 겹칩니다.`
-          );
-          setCreating(false);
-          return;
-        }
-
         scheduleData = {
-          daysOfWeek: selectedDays.sort(), // 요일 배열 (0: 일요일, 1: 월요일, ..., 6: 토요일)
-          startTime: startTimeStr,
-          endTime: endTimeStr,
+          daysOfWeek: selectedDays.sort(),
+          startTime: `${String(startHours).padStart(2, "0")}:${String(
+            startMinutes
+          ).padStart(2, "0")}`,
+          endTime: `${String(endHours).padStart(2, "0")}:${String(endMinutes).padStart(
+            2,
+            "0"
+          )}`,
         };
       }
 
@@ -267,64 +242,57 @@ export default function CreateGroupScreen() {
         const validQuestions = applicationQuestions.filter((q) => q.trim().length > 0);
         if (validQuestions.length === 0) {
           Alert.alert("입력 오류", "신청서 문답을 최소 1개 이상 입력해주세요.");
-          setCreating(false);
+          setSaving(false);
           return;
         }
         applicationQuestionsData = validQuestions.map((q) => q.trim());
       }
 
-      const newGroup = {
+      const updateData = {
         name: name.trim(),
         description: description.trim(),
         type: type,
         hasSchedule: hasSchedule === true,
         schedule: scheduleData,
         location: location.trim(),
-        color: color,
-        creatorId: user.uid,
-        members: [user.uid],
-        memberCount: 1,
         requiresApplication: requiresApplication === true,
         applicationQuestions: applicationQuestionsData,
-        createdAt: serverTimestamp(),
       };
 
-      await setDoc(newGroupRef, newGroup);
+      await updateDoc(doc(db, "groups", groupId), updateData);
 
-      // 사용자의 joinedGroups에 추가
-      const userDoc = await getDoc(doc(db, "users", user.uid));
-      const userData = userDoc.data();
-      const joinedGroups = userData?.joinedGroups || [];
-      await setDoc(
-        doc(db, "users", user.uid),
-        {
-          joinedGroups: [...joinedGroups, newGroupRef.id],
-        },
-        { merge: true }
-      );
-
-      Alert.alert("성공", "모임이 생성되었습니다.", [
+      Alert.alert("성공", "모임 정보가 수정되었습니다.", [
         {
           text: "확인",
           onPress: () => router.back(),
         },
       ]);
     } catch (error: any) {
-      console.error("Error creating group:", error);
-      Alert.alert("오류", error?.message || "모임 생성에 실패했습니다.");
+      console.error("Error updating group:", error);
+      Alert.alert("오류", error?.message || "모임 수정에 실패했습니다.");
     } finally {
-      setCreating(false);
+      setSaving(false);
     }
   };
 
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.container} edges={["top"]}>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#4A90E2" />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
-      {/* 헤더 (뒤로가기만) */}
+      {/* 헤더 */}
       <View style={styles.header}>
         <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
           <Ionicons name="arrow-back" size={24} color="#333" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>모임 만들기</Text>
+        <Text style={styles.headerTitle}>모임 편집</Text>
         <View style={styles.headerSpacer} />
       </View>
 
@@ -777,19 +745,19 @@ export default function CreateGroupScreen() {
             )}
           </View>
 
-          {/* 생성 버튼 */}
+          {/* 저장 버튼 */}
           <View style={styles.buttonContainer}>
             <TouchableOpacity
-              style={[styles.createButton, creating && styles.createButtonDisabled]}
-              onPress={handleCreate}
-              disabled={creating}
+              style={[styles.saveButton, saving && styles.saveButtonDisabled]}
+              onPress={handleSave}
+              disabled={saving}
             >
-              {creating ? (
+              {saving ? (
                 <ActivityIndicator color="#fff" />
               ) : (
                 <>
                   <Ionicons name="checkmark-circle" size={20} color="#fff" />
-                  <Text style={styles.createButtonText}>모임 만들기</Text>
+                  <Text style={styles.saveButtonText}>저장하기</Text>
                 </>
               )}
             </TouchableOpacity>
@@ -825,6 +793,11 @@ const styles = StyleSheet.create({
   },
   headerSpacer: {
     width: 32,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
   },
   content: {
     flex: 1,
@@ -864,11 +837,6 @@ const styles = StyleSheet.create({
   textArea: {
     minHeight: 100,
   },
-  hint: {
-    fontSize: 12,
-    color: "#999",
-    marginTop: 4,
-  },
   typeContainer: {
     flexDirection: "row",
     gap: 12,
@@ -903,7 +871,7 @@ const styles = StyleSheet.create({
     padding: 16,
     paddingBottom: 32,
   },
-  createButton: {
+  saveButton: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
@@ -912,10 +880,10 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     gap: 8,
   },
-  createButtonDisabled: {
+  saveButtonDisabled: {
     opacity: 0.6,
   },
-  createButtonText: {
+  saveButtonText: {
     color: "#fff",
     fontSize: 16,
     fontWeight: "600",

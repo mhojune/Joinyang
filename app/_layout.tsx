@@ -19,11 +19,20 @@ function RouteGuard({ children }: { children: React.ReactNode }) {
     const inCreateGroup = first === "create-group";
     const inGroupDetail = first === "group-detail";
     const inGroupMembers = first === "group-members";
+    const inEditGroup = first === "edit-group";
+    const inApplication = first === "application";
+    const inViewApplication = first === "view-application";
+    const inGroupBoard = first === "group-board";
+    const inGroupChat = first === "group-chat";
+    const inGroupTimeCalculator = first === "group-time-calculator";
+    const inCreatePost = first === "create-post";
+    const inPostDetail = first === "post-detail";
+    const inEditPost = first === "edit-post";
 
     if (!user && !inAuthGroup && !isLoadingUser) {
       router.replace("/auth" as any);
     } else if (user && inAuthGroup && !isLoadingUser) {
-      router.replace("/(tabs)" as any);
+      router.replace("/" as any);
     } else if (
       user &&
       !inAuthGroup &&
@@ -33,9 +42,18 @@ function RouteGuard({ children }: { children: React.ReactNode }) {
       !inCreateGroup &&
       !inGroupDetail &&
       !inGroupMembers &&
+      !inEditGroup &&
+      !inApplication &&
+      !inViewApplication &&
+      !inGroupBoard &&
+      !inGroupChat &&
+      !inGroupTimeCalculator &&
+      !inCreatePost &&
+      !inPostDetail &&
+      !inEditPost &&
       !isLoadingUser
     ) {
-      router.replace("/(tabs)" as any);
+      router.replace("/" as any);
     }
   }, [user, isLoadingUser, segments, router]);
 
@@ -56,6 +74,18 @@ export default function RootLayout() {
               <Stack.Screen name="create-group" options={{ headerShown: false }} />
               <Stack.Screen name="group-detail" options={{ headerShown: false }} />
               <Stack.Screen name="group-members" options={{ headerShown: false }} />
+              <Stack.Screen name="edit-group" options={{ headerShown: false }} />
+              <Stack.Screen name="application" options={{ headerShown: false }} />
+              <Stack.Screen name="view-application" options={{ headerShown: false }} />
+              <Stack.Screen name="group-board" options={{ headerShown: false }} />
+              <Stack.Screen name="group-chat" options={{ headerShown: false }} />
+              <Stack.Screen
+                name="group-time-calculator"
+                options={{ headerShown: false }}
+              />
+              <Stack.Screen name="create-post" options={{ headerShown: false }} />
+              <Stack.Screen name="post-detail" options={{ headerShown: false }} />
+              <Stack.Screen name="edit-post" options={{ headerShown: false }} />
             </Stack>
           </RouteGuard>
         </SafeAreaProvider>

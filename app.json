@@ -4,6 +4,12 @@
     "slug": "joinyang",
     "version": "1.0.0",
     "orientation": "portrait",
+    "extra": {
+      "eas": {
+        "projectId": "5d164a6f-a8b1-48ce-acdc-f0f237bcbda7"
+      },
+      "router": {}
+    },
     "icon": "./assets/images/icon.png",
     "scheme": "joinyang",
     "userInterfaceStyle": "automatic",
@@ -13,13 +19,13 @@
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/images/android-icon-foreground.png",
-        "backgroundImage": "./assets/images/android-icon-background.png",
-        "monochromeImage": "./assets/images/android-icon-monochrome.png"
+        "foregroundImage": "./assets/images/icon.png",
+        "backgroundColor": "#E6F4FE"
       },
+      "icon": "./assets/images/icon.png",
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "package": "com.mhojune.joinyang"
     },
     "web": {
       "output": "static",

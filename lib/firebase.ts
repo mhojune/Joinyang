@@ -1,7 +1,10 @@
 import { initializeApp } from "firebase/app";
-import { getAuth } from "firebase/auth";
+import { getAuth, initializeAuth, getReactNativePersistence } from "firebase/auth";
+import { getDatabase } from "firebase/database";
 import { getFirestore } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { Platform } from "react-native";
 
 // React Native 환경에서는 analytics를 사용하지 않습니다.
 const firebaseConfig = {
@@ -15,7 +18,19 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 
-export const auth = getAuth(app);
+// AsyncStorage를 사용하여 인증 상태를 영구적으로 저장
+// React Native 환경에서는 initializeAuth를 사용하여 persistence 설정
+export const auth = Platform.OS === "web" 
+  ? getAuth(app)
+  : initializeAuth(app, {
+      persistence: getReactNativePersistence(AsyncStorage),
+    });
 export const db = getFirestore(app);
+// 올바른 지역의 데이터베이스 URL 사용
+export const realtimeDb = getDatabase(
+  app,
+  process.env.EXPO_PUBLIC_FIREBASE_DATABASE_URL ||
+    "https://joinyang-3aaab-default-rtdb.asia-southeast1.firebasedatabase.app"
+);
 export const storage = getStorage(app);
 export default app;

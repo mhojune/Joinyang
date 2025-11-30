@@ -16,6 +16,8 @@ import {
   ActivityIndicator,
   Alert,
   Image,
+  KeyboardAvoidingView,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -23,7 +25,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 type UserData = {
   userId: string;
@@ -51,6 +53,7 @@ type Group = {
 export default function ProfileScreen() {
   const { user, signOut } = useAuth();
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const [userData, setUserData] = React.useState<UserData | null>(null);
   const [joinedGroups, setJoinedGroups] = React.useState<Group[]>([]);
   const [loading, setLoading] = React.useState(true);
@@ -213,105 +216,122 @@ export default function ProfileScreen() {
         </TouchableOpacity>
       </View>
 
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        {/* 프로필 정보 */}
-        <View style={styles.infoSection}>
-          {/* 프로필 아이콘 */}
-          <View style={styles.avatarSection}>
-            {userData?.avatarUrl ? (
-              <Image source={{ uri: userData.avatarUrl }} style={styles.avatar} />
-            ) : (
-              <View style={styles.avatarPlaceholder}>
-                <Ionicons name="person" size={40} color="#999" />
-              </View>
-            )}
+      <KeyboardAvoidingView
+        style={styles.content}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 0}
+      >
+        <ScrollView
+          style={styles.content}
+          contentContainerStyle={{ paddingBottom: insets.bottom + 20 }}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
+          {/* 프로필 정보 */}
+          <View style={styles.infoSection}>
+            {/* 프로필 아이콘 */}
+            <View style={styles.avatarSection}>
+              {userData?.avatarUrl ? (
+                <Image source={{ uri: userData.avatarUrl }} style={styles.avatar} />
+              ) : (
+                <View style={styles.avatarPlaceholder}>
+                  <Ionicons name="person" size={40} color="#999" />
+                </View>
+              )}
+            </View>
+            <EditableInfoRow
+              label="프로필 아이디"
+              value={userData?.userId || "-"}
+              editing={!!editing.userId}
+              editValue={editValues.userId}
+              onEditChange={(text) =>
+                setEditValues((prev) => ({ ...prev, userId: text }))
+              }
+              onEdit={() => {
+                setEditing((prev) => ({ ...prev, userId: !prev.userId }));
+                setEditValues((prev) => ({
+                  ...prev,
+                  userId: userData?.userId || "",
+                }));
+              }}
+              onSave={() => handleSave("userId")}
+              onCancel={() => {
+                setEditValues((prev) => ({
+                  ...prev,
+                  userId: userData?.userId || "",
+                }));
+                setEditing((prev) => ({ ...prev, userId: false }));
+              }}
+              saving={saving}
+            />
+            <InfoRow label="이메일" value={userData?.email || user?.email || "-"} />
+            <InfoRow label="가입일" value={formatDate(userData?.createdAt)} />
+            <EditableInfoRow
+              label="자기소개"
+              value={userData?.intro || "(비어있음)"}
+              editing={!!editing.intro}
+              editValue={editValues.intro}
+              onEditChange={(text) => setEditValues((prev) => ({ ...prev, intro: text }))}
+              onEdit={() => {
+                setEditing((prev) => ({ ...prev, intro: !prev.intro }));
+                setEditValues((prev) => ({
+                  ...prev,
+                  intro: userData?.intro || "",
+                }));
+              }}
+              onSave={() => handleSave("intro")}
+              onCancel={() => {
+                setEditValues((prev) => ({
+                  ...prev,
+                  intro: userData?.intro || "",
+                }));
+                setEditing((prev) => ({ ...prev, intro: false }));
+              }}
+              saving={saving}
+              multiline
+            />
+            <View style={styles.infoRow}>
+              <Text style={styles.infoLabel}>참가 중인 모임</Text>
+              {loadingGroups ? (
+                <ActivityIndicator
+                  size="small"
+                  color="#4A90E2"
+                  style={{ marginTop: 8 }}
+                />
+              ) : joinedGroups.length === 0 ? (
+                <Text style={styles.infoValue}>없음</Text>
+              ) : (
+                <View style={styles.groupsList}>
+                  {joinedGroups.map((group) => (
+                    <GroupItem key={group.id} group={group} userId={user?.uid} />
+                  ))}
+                </View>
+              )}
+            </View>
           </View>
-          <EditableInfoRow
-            label="프로필 아이디"
-            value={userData?.userId || "-"}
-            editing={!!editing.userId}
-            editValue={editValues.userId}
-            onEditChange={(text) => setEditValues((prev) => ({ ...prev, userId: text }))}
-            onEdit={() => {
-              setEditing((prev) => ({ ...prev, userId: !prev.userId }));
-              setEditValues((prev) => ({
-                ...prev,
-                userId: userData?.userId || "",
-              }));
-            }}
-            onSave={() => handleSave("userId")}
-            onCancel={() => {
-              setEditValues((prev) => ({
-                ...prev,
-                userId: userData?.userId || "",
-              }));
-              setEditing((prev) => ({ ...prev, userId: false }));
-            }}
-            saving={saving}
-          />
-          <InfoRow label="이메일" value={userData?.email || user?.email || "-"} />
-          <InfoRow label="가입일" value={formatDate(userData?.createdAt)} />
-          <EditableInfoRow
-            label="자기소개"
-            value={userData?.intro || "(비어있음)"}
-            editing={!!editing.intro}
-            editValue={editValues.intro}
-            onEditChange={(text) => setEditValues((prev) => ({ ...prev, intro: text }))}
-            onEdit={() => {
-              setEditing((prev) => ({ ...prev, intro: !prev.intro }));
-              setEditValues((prev) => ({
-                ...prev,
-                intro: userData?.intro || "",
-              }));
-            }}
-            onSave={() => handleSave("intro")}
-            onCancel={() => {
-              setEditValues((prev) => ({
-                ...prev,
-                intro: userData?.intro || "",
-              }));
-              setEditing((prev) => ({ ...prev, intro: false }));
-            }}
-            saving={saving}
-            multiline
-          />
-          <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>참가 중인 모임</Text>
-            {loadingGroups ? (
-              <ActivityIndicator size="small" color="#4A90E2" style={{ marginTop: 8 }} />
-            ) : joinedGroups.length === 0 ? (
-              <Text style={styles.infoValue}>없음</Text>
-            ) : (
-              <View style={styles.groupsList}>
-                {joinedGroups.map((group) => (
-                  <GroupItem key={group.id} group={group} userId={user?.uid} />
-                ))}
-              </View>
-            )}
+
+          {/* 옵션칸 */}
+          <View style={styles.optionsSection}>
+            <TouchableOpacity style={styles.optionButton}>
+              <Ionicons name="settings-outline" size={24} color="#333" />
+              <Text style={styles.optionText}>설정</Text>
+              <Ionicons name="chevron-forward" size={20} color="#999" />
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.optionButton}>
+              <Ionicons name="help-circle-outline" size={24} color="#333" />
+              <Text style={styles.optionText}>도움말</Text>
+              <Ionicons name="chevron-forward" size={20} color="#999" />
+            </TouchableOpacity>
           </View>
-        </View>
 
-        {/* 옵션칸 */}
-        <View style={styles.optionsSection}>
-          <TouchableOpacity style={styles.optionButton}>
-            <Ionicons name="settings-outline" size={24} color="#333" />
-            <Text style={styles.optionText}>설정</Text>
-            <Ionicons name="chevron-forward" size={20} color="#999" />
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.optionButton}>
-            <Ionicons name="help-circle-outline" size={24} color="#333" />
-            <Text style={styles.optionText}>도움말</Text>
-            <Ionicons name="chevron-forward" size={20} color="#999" />
-          </TouchableOpacity>
-        </View>
-
-        {/* 로그아웃 버튼 */}
-        <View style={styles.logoutSection}>
-          <TouchableOpacity style={styles.logoutButton} onPress={signOut}>
-            <Text style={styles.logoutText}>로그아웃</Text>
-          </TouchableOpacity>
-        </View>
-      </ScrollView>
+          {/* 로그아웃 버튼 */}
+          <View style={styles.logoutSection}>
+            <TouchableOpacity style={styles.logoutButton} onPress={signOut}>
+              <Text style={styles.logoutText}>로그아웃</Text>
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }

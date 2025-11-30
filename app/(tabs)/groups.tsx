@@ -27,6 +27,7 @@ type Group = {
   creatorId: string;
   members: string[];
   memberCount: number;
+  requiresApplication?: boolean;
   createdAt: any;
 };
 
@@ -70,16 +71,20 @@ export default function GroupsScreen() {
         setMyGroups([]);
       }
 
-      // 인기 모임 리스트 로드 (멤버 수 기준 정렬)
+      // 다른 모임들 로드 (멤버 수 기준 정렬, 내가 참여한 모임 제외)
       const groupsRef = collection(db, "groups");
       const popularQuery = query(groupsRef, orderBy("memberCount", "desc"));
       const popularSnapshot = await getDocs(popularQuery);
       const popularData: Group[] = [];
       popularSnapshot.forEach((doc) => {
-        popularData.push({
+        const groupData = {
           id: doc.id,
           ...doc.data(),
-        } as Group);
+        } as Group;
+        // 내가 참여하지 않은 모임만 추가
+        if (!joinedGroupIds.includes(groupData.id)) {
+          popularData.push(groupData);
+        }
       });
       setPopularGroups(popularData.slice(0, 10)); // 상위 10개만
     } catch (error) {
@@ -134,13 +139,13 @@ export default function GroupsScreen() {
             )}
           </View>
 
-          {/* 인기 모임 리스트 */}
+          {/* 다른 모임들 */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>인기 모임</Text>
+            <Text style={styles.sectionTitle}>다른 모임들</Text>
             {popularGroups.length === 0 ? (
               <View style={styles.emptyCard}>
-                <Ionicons name="flame-outline" size={48} color="#CCC" />
-                <Text style={styles.emptyText}>인기 모임이 없습니다</Text>
+                <Ionicons name="search-outline" size={48} color="#CCC" />
+                <Text style={styles.emptyText}>새로운 모임이 없습니다</Text>
               </View>
             ) : (
               popularGroups.map((group) => (
@@ -186,18 +191,26 @@ function GroupCard({ group, userId }: { group: Group; userId?: string }) {
             {group.description}
           </Text>
         )}
-        {group.type && (
+        {(group.type || group.requiresApplication || group.location) && (
           <View style={styles.groupMeta}>
-            <View style={styles.groupTypeBadge}>
-              <Ionicons
-                name={group.type === "study" ? "school" : "heart"}
-                size={12}
-                color="#666"
-              />
-              <Text style={styles.groupTypeText}>
-                {group.type === "study" ? "스터디" : "취미 모임"}
-              </Text>
-            </View>
+            {group.type && (
+              <View style={styles.groupTypeBadge}>
+                <Ionicons
+                  name={group.type === "study" ? "school" : "heart"}
+                  size={12}
+                  color="#666"
+                />
+                <Text style={styles.groupTypeText}>
+                  {group.type === "study" ? "스터디" : "취미 모임"}
+                </Text>
+              </View>
+            )}
+            {group.requiresApplication && (
+              <View style={styles.applicationBadge}>
+                <Ionicons name="document-text" size={12} color="#FF6B6B" />
+                <Text style={styles.applicationBadgeText}>신청서 필요</Text>
+              </View>
+            )}
             {group.location && (
               <View style={styles.groupLocation}>
                 <Ionicons name="location" size={12} color="#666" />
@@ -358,5 +371,19 @@ const styles = StyleSheet.create({
   groupLocationText: {
     fontSize: 11,
     color: "#666",
+  },
+  applicationBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#FFE6E6",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    gap: 4,
+  },
+  applicationBadgeText: {
+    fontSize: 11,
+    color: "#FF6B6B",
+    fontWeight: "600",
   },
 });
